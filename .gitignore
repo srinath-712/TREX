@@ -8,7 +8,7 @@ venv/
 .env
 
 # Node
-node_modules/
+# node_modules/ - Removing as requested
 dist/
 dist-ssr/
 *.local
@@ -18,7 +18,7 @@ dist-ssr/
 .idea/
 
 # Project specific
-memecoin-radar-ui-backup/
+# memecoin-radar-ui-backup/ - Removing as requested
 test_chunk*_output.txt
 test_chunk*.py
 imghdr.py
