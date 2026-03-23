@@ -1,58 +1,76 @@
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { HistoryResponse, Alert } from '../types';
 
-interface Props {
-  history: HistoryResponse | null;
-  alerts: Alert[];
-}
+export const TrendChart = ({ history }: any) => {
+  if (!history || history.length === 0) return (
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col justify-center items-center text-slate-500 shadow-lg">
+      <div className="animate-pulse flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-600"></div>Gathering Signal...</div>
+    </div>
+  );
 
-export const TrendChart: React.FC<Props> = ({ history, alerts }) => {
-  if (!history || history.history.length === 0) {
-    return <div style={{ height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>No history data available</div>;
-  }
+  const scores = history.map((entry: any) => entry.final_score);
+  const min = Math.max(0, Math.min(...scores) - 0.2); // Add padding
+  const max = Math.min(1, Math.max(...scores) + 0.2);
+  const range = max - min || 1;
 
-  const data = history.history.map(entry => {
-    const d = new Date(entry.timestamp);
-    const timeLabel = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-    return {
-      time: timeLabel,
-      finalScore: entry.final_score * 100,
-      sentiment: ((entry.avg_sentiment + 1) / 2) * 100, // Normalize -1..1 to 0..100
-      mentions: entry.mentions > 0 ? (entry.mentions / 100) * 100 : 0, // Roughly normalized for visual scale
-      rawTimestamp: entry.timestamp
-    };
+  const points = history.map((entry: any, i: number) => {
+    const x = history.length > 1 ? (i / (history.length - 1)) * 100 : 50;
+    const y = 100 - (((entry?.final_score || 0) - min) / range) * 100;
+    return { x, y, isAlert: entry?.alerts && entry?.alerts.length > 0 };
   });
 
-  const spikeAlerts = alerts.filter(a => a.alert_type === 'MENTION_SPIKE' || a.alert_type === 'WHALE_SPIKE');
-  let referenceLineTime = null;
-  if (spikeAlerts.length > 0) {
-    const alertTime = new Date(spikeAlerts[0].timestamp);
-    referenceLineTime = `${alertTime.getHours().toString().padStart(2, '0')}:${alertTime.getMinutes().toString().padStart(2, '0')}`;
-  }
+  const pathD = `M 0,${points[0] ? points[0].y : 50} L ${points.map((p: any) => `${p.x},${p.y}`).join(' L ')}`;
+  const areaD = `${pathD} L 100,100 L 0,100 Z`;
 
   return (
-    <div style={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: '12px', padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <h2 style={{ fontSize: '16px', color: '#e2e8f0', marginBottom: '16px', fontWeight: 'bold' }}>TREND OVERVIEW | Last 24 Hours</h2>
-      <div style={{ flex: 1, width: '100%', minHeight: '220px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e2d4a" vertical={false} />
-            <XAxis dataKey="time" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
-            <Tooltip
-              contentStyle={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: '8px' }}
-              itemStyle={{ fontSize: '14px' }}
-              labelStyle={{ color: '#e2e8f0', marginBottom: '8px' }}
-            />
-            {referenceLineTime && (
-              <ReferenceLine x={referenceLineTime} stroke="#ffffff" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'Hype Surge Detected', fill: '#ffffff', fontSize: 12 }} />
-            )}
-            <Line type="monotone" dataKey="finalScore" name="Final Score" stroke="#00ff88" strokeWidth={2} dot={false} isAnimationActive={true} />
-            <Line type="monotone" dataKey="sentiment" name="Sentiment" stroke="#4a9eff" strokeWidth={2} dot={false} isAnimationActive={true} />
-            <Line type="monotone" dataKey="mentions" name="Mentions (norm)" stroke="#ff6b35" strokeWidth={2} dot={false} isAnimationActive={true} />
-          </LineChart>
-        </ResponsiveContainer>
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col shadow-lg overflow-hidden relative">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4 shrink-0">
+        <h3 className="text-slate-200 text-sm font-bold uppercase tracking-widest">Trend Overview</h3>
+        <div className="h-4 w-[1px] bg-slate-600"></div>
+        <span className="text-xs text-slate-400">Last 24 Hours</span>
+      </div>
+
+      {/* Embedded Chart */}
+      <div className="flex-1 relative w-full h-full min-h-0">
+        <svg viewBox="-2 -5 104 110" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(16, 185, 129, 0.2)" />
+              <stop offset="100%" stopColor="rgba(16, 185, 129, 0.0)" />
+            </linearGradient>
+            <filter id="glowChart" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Grid Lines */}
+          {[0, 25, 50, 75, 100].map(y => (
+            <line key={`grid-${y}`} x1="0" y1={y} x2="100" y2={y} stroke="#1e293b" strokeWidth="0.5" />
+          ))}
+
+          {/* Area Fill */}
+          <path d={areaD} fill="url(#chartGradient)" />
+
+          {/* Line Path */}
+          <path d={pathD} fill="none" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" filter="url(#glowChart)" className="drop-shadow-lg" />
+
+          {/* Alert Spikes */}
+          {points.filter((p: any) => p.isAlert).map((p: any, i: number) => (
+             <g key={i}>
+                <line x1={p.x} y1="100" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="1,1" />
+                <circle cx={p.x} cy={p.y} r="2.5" fill="#f8fafc" filter="url(#glowChart)" />
+             </g>
+          ))}
+        </svg>
+
+        {/* Mock X-Axis Labels */}
+        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-slate-500 px-1 transform translate-y-4">
+          <span>10:00</span><span>15:00</span><span>23:00</span><span>8:00</span><span>11:00</span><span>12:00</span><span className="text-emerald-400 font-bold">LIVE</span>
+        </div>
       </div>
     </div>
   );

@@ -50,6 +50,7 @@ export interface TrendResponse {
   influencer_signal: InfluencerSignal;
   noise_filtered_pct: number;
   duplicate_removed_pct: number;
+  velocity?: number;
 }
 
 export interface CoinSummary {
@@ -61,6 +62,7 @@ export interface CoinSummary {
   influencer_signal: InfluencerSignal;
   noise_filtered_pct: number;
   duplicate_removed_pct: number;
+  velocity?: number;
 }
 
 export interface CoinsListResponse {

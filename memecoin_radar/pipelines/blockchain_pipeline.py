@@ -178,6 +178,11 @@ async def _fetch_etherscan(token_address: str) -> dict:
 
 
 async def fetch_onchain_data(token_address: str, coin: str) -> dict:
+    # Fast-fail if not a valid ETH address to avoid 12s timeout spam
+    if not token_address.startswith('0x'):
+        print(f"[WARNING] OnChain: '{token_address}' is not a valid ETH address. Skipping APIs.")
+        return _zero_result()
+        
     try:
         result = await _fetch_moralis(token_address)
         result['source'] = 'moralis'

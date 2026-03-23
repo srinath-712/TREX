@@ -95,6 +95,7 @@ class CoinSummary(BaseModel):
     influencer_signal: InfluencerSignal
     noise_filtered_pct: float
     duplicate_removed_pct: float
+    velocity: float = 0.0
 
 class TrendResponse(BaseModel):
     coin: str
@@ -110,6 +111,7 @@ class TrendResponse(BaseModel):
     influencer_signal: InfluencerSignal
     noise_filtered_pct: float
     duplicate_removed_pct: float
+    velocity: float = 0.0
 
 class HistoryEntry(BaseModel):
     timestamp: datetime

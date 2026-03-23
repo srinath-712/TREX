@@ -1,47 +1,62 @@
 import React from 'react';
-import { TrendResponse } from '../types';
 
-export const HypeAnalysis: React.FC<{ trend: TrendResponse }> = ({ trend }) => {
-  const getPhaseColor = () => {
-    switch (trend.hype_phase) {
-      case 'PEAK_HYPE':
-      case 'EARLY_HYPE': return '#00ff88';
-      case 'COOLING': return '#ff6b35';
-      case 'DEAD': return '#ff3333';
-      default: return '#64748b';
-    }
-  };
+export const HypeAnalysis = ({ trend }: any) => {
+  if (!trend) return null;
 
-  const phaseEmoji = (trend.hype_phase === 'PEAK_HYPE' || trend.hype_phase === 'EARLY_HYPE') ? '🚀' :
-                     (trend.hype_phase === 'COOLING' || trend.hype_phase === 'DEAD') ? '↓' : '';
-
-  let confValue = '25%';
-  if (trend.confidence === 'HIGH') confValue = '85%+';
-  if (trend.confidence === 'MEDIUM') confValue = '50%';
-
-  const whaleStr = trend.onchain_features.whale_activity > 0.6 ? 'HIGH' :
-                   trend.onchain_features.whale_activity > 0.3 ? 'MODERATE' : 'LOW';
-
-  const infStr = trend.influencer_signal.detected ? 'STRONG' : 'NONE';
-
-  const Row = ({ label, value, color, emoji }: { label: string, value: string, color: string, emoji?: string }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #1e2d4a' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }}></div>
-        <span style={{ color: '#64748b', fontSize: '14px' }}>{label}</span>
-      </div>
-      <span style={{ color: '#e2e8f0', fontWeight: 'bold', fontSize: '14px' }}>{value} {emoji}</span>
-    </div>
-  );
+  const phase = (trend?.hype_phase || 'UNKNOWN').replace('_', ' ');
+  const confidence = trend?.confidence || 'UNKNOWN';
+  const isWhale = trend?.onchain_features?.whale_activity > 0;
+  const isInfluencer = trend?.influencer_signal?.detected;
 
   return (
-    <div style={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: '12px', padding: '24px', height: '100%' }}>
-      <h2 style={{ fontSize: '16px', color: '#e2e8f0', marginBottom: '16px', fontWeight: 'bold' }}>HYPE ANALYSIS</h2>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <Row label="Current Phase" value={trend.hype_phase.replace('_', ' ')} color={getPhaseColor()} emoji={phaseEmoji} />
-        <Row label="Confidence Level" value={confValue} color="#4a9eff" emoji="🛡️" />
-        <Row label="Whale Activity" value={whaleStr} color="#00ff88" emoji="🐋" />
-        <Row label="Influencer Impact" value={infStr} color="#ffd700" emoji="📣" />
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col shadow-lg overflow-hidden">
+      <div className="flex justify-between items-center mb-4 shrink-0">
+        <h3 className="text-slate-200 text-sm font-bold uppercase tracking-widest">Hype Analysis</h3>
+        <div className="flex gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span></div>
+      </div>
+
+      <div className="flex flex-col flex-1 justify-center gap-2">
+        {/* Phase Row */}
+        <div key={(trend as any)?._flashPhase || 'b1'} className="flex justify-between items-center bg-[#1a233a] rounded-lg p-3 border border-slate-700/50 animate-[pulse_2s_ease-out]">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs shadow-inner">✓</span>
+            <span className="text-slate-300 text-sm">Current Phase:</span>
+            <span className="font-bold text-amber-500">{phase}</span>
+          </div>
+          <span className="text-xl">🚀</span>
+        </div>
+
+        {/* Confidence Row */}
+        <div className="flex justify-between items-center bg-[#1a233a] rounded-lg p-3 border border-slate-700/50">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs">✓</span>
+            <span className="text-slate-300 text-sm">Confidence Level:</span>
+            <span className={`font-bold ${confidence === 'HIGH' ? 'text-emerald-400' : confidence === 'MEDIUM' ? 'text-amber-400' : 'text-slate-400'}`}>
+              {confidence}
+            </span>
+          </div>
+          <span className="text-xl">🛡️</span>
+        </div>
+
+        {/* Whale Row */}
+        <div className="flex justify-between items-center bg-[#1a233a] rounded-lg p-3 border border-slate-700/50">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs">🌊</span>
+            <span className="text-slate-300 text-sm">Whale Activity:</span>
+            <span className={`font-bold ${isWhale ? 'text-blue-400' : 'text-slate-500'}`}>{isWhale ? 'HIGH' : 'LOW'}</span>
+          </div>
+          <span className="text-xl">🐋</span>
+        </div>
+
+        {/* Influencer Row */}
+        <div className="flex justify-between items-center bg-[#1a233a] rounded-lg p-3 border border-slate-700/50">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400 text-xs">📣</span>
+            <span className="text-slate-300 text-sm">Influencer Impact:</span>
+            <span className={`font-bold ${isInfluencer ? 'text-rose-400' : 'text-slate-500'}`}>{isInfluencer ? 'STRONG' : 'WEAK'}</span>
+          </div>
+          <span className="text-xl">📢</span>
+        </div>
       </div>
     </div>
   );

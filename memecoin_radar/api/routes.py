@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Query, HTTPException
 from datetime import datetime, timezone
-import re, asyncio
+import re, asyncio, os
+from fastapi import WebSocket, WebSocketDisconnect
+from memecoin_radar.api.ws_manager import manager
 
 from memecoin_radar.config import WINDOW_MINUTES, TOP_N_COINS
 from memecoin_radar.models.schemas import (
     CoinsListResponse, TrendResponse, HistoryResponse,
-    CoinSummary, HistoryEntry
+    CoinSummary, HistoryEntry, CleanPost
 )
-from memecoin_radar.pipelines.social_pipeline import fetch_social_data
+from memecoin_radar.pipelines.lunarcrush_pipeline import fetch_lunarcrush_data
 from memecoin_radar.pipelines.blockchain_pipeline import fetch_onchain_data
+from memecoin_radar.pipelines.mock_pipelines import fetch_mock_social_data, fetch_mock_onchain_data
 from memecoin_radar.features.social_features import extract_social_features
 from memecoin_radar.features.onchain_features import extract_onchain_features
 from memecoin_radar.scoring.social_score import compute_social_trend_score
@@ -33,29 +36,27 @@ def validate_coin(coin: str) -> str:
     return coin
 
 async def _run_pipeline(coin: str) -> dict:
-    """
-    Full pipeline for a single coin. Returns all data needed
-    for both /trend and /coins endpoints.
-    """
+    USE_MOCKS = os.getenv('USE_MOCKS', 'true').lower() == 'true'
+    
     # 1. Fetch social data
-    social_raw = fetch_social_data(coin)
-    current_posts  = social_raw['current']
-    previous_posts = social_raw['previous']
-    noise_count    = social_raw['noise_filtered_count']
-    dup_count      = social_raw['duplicate_removed_count']
-    total_fetched  = social_raw['total_fetched']
+    if USE_MOCKS:
+        lunarcrush_data = fetch_mock_social_data(coin)
+    else:
+        lunarcrush_data = await fetch_lunarcrush_data(coin)
+        
+    current_posts  = lunarcrush_data['posts']
+    soc_features   = lunarcrush_data['features']
+    total_fetched  = lunarcrush_data['total_volume']
 
-    # 2. Store posts in time window store
+    # 2. Store synthesized posts in time window store for UI
     store.add_posts(coin, current_posts)
 
-    # 3. Extract social features
-    soc_features = extract_social_features(
-        current_posts, previous_posts, coin, noise_count, dup_count
-    )
-
-    # 4. Fetch on-chain data
-    # token_address lookup not in scope — coin ticker used as placeholder
-    onchain_raw = await fetch_onchain_data(coin, coin)
+    # 3. Fetch on-chain data
+    if USE_MOCKS:
+        onchain_raw = await fetch_mock_onchain_data(coin, coin)
+    else:
+        # token_address lookup not in scope — coin ticker used as placeholder
+        onchain_raw = await fetch_onchain_data(coin, coin)
 
     # 5. Extract on-chain features
     oc_features = extract_onchain_features(onchain_raw, coin)
@@ -89,18 +90,63 @@ async def _run_pipeline(coin: str) -> dict:
     # 10. Influencer signal
     influencer = detect_influencer_signal(coin, current_posts)
 
-    # 11. Noise metrics as percentages
-    noise_pct = (noise_count / max(total_fetched, 1)) * 100.0
-    dup_pct   = (dup_count   / max(total_fetched, 1)) * 100.0
+    # 11. Noise metrics as percentages (mocked to 0 for LunarCrush data)
+    noise_pct = 0.0
+    dup_pct   = 0.0
 
-    # 12. Record history snapshot
+    # 12. Calculate velocity
+    history = store.get_history(coin)
+    velocity = 0.0
+    if len(history) >= 4:
+        velocity = (final.score - history[-4].final_score) / 3
+    elif len(history) > 0:
+        velocity = (final.score - history[0].final_score) / len(history)
+
+    # 13. Broadcast WebSocket updates
+    await manager.broadcast({
+        'type': 'score_update',
+        'coin': coin,
+        'data': {
+            'final_score': final.score,
+            'social_score': final.social_score,
+            'onchain_score': final.onchain_score,
+            'hype_phase': hype.phase,
+            'confidence': confidence.level
+        },
+        'timestamp': datetime.now(timezone.utc).isoformat()
+    })
+    
+    for alert in alerts:
+        await manager.broadcast({
+            'type': 'new_alert',
+            'coin': coin,
+            'data': alert.model_dump() if hasattr(alert, 'model_dump') else alert.dict(),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+        
+    phase_change = store.check_and_update_phase(coin, hype.phase)
+    if phase_change:
+        new_phase, old_phase = phase_change
+        await manager.broadcast({
+            'type': 'phase_change',
+            'coin': coin,
+            'data': {
+                'old_phase': old_phase,
+                'new_phase': new_phase,
+                'final_score': final.score
+            },
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+
+    # 14. Record history snapshot
     store.record_snapshot(coin, HistoryEntry(
         timestamp=datetime.now(timezone.utc),
         final_score=final.score,
         hype_phase=hype.phase,
         confidence=confidence.level,
         mentions=soc_features.curr_mentions,
-        avg_sentiment=soc_features.avg_sentiment
+        avg_sentiment=soc_features.avg_sentiment,
+        velocity=velocity
     ))
 
     return {
@@ -114,6 +160,7 @@ async def _run_pipeline(coin: str) -> dict:
         'influencer': influencer,
         'noise_pct': noise_pct,
         'dup_pct': dup_pct,
+        'velocity': velocity,
     }
 
 @router.get('/coins', response_model=CoinsListResponse)
@@ -136,6 +183,7 @@ async def get_coins():
                 influencer_signal=data['influencer'],
                 noise_filtered_pct=data['noise_pct'],
                 duplicate_removed_pct=data['dup_pct'],
+                velocity=data['velocity'],
             ))
         except Exception as e:
             print(f'[ERROR] pipeline failed for {coin}: {e}')
@@ -165,6 +213,7 @@ async def get_trend(coin: str = Query(...,
         influencer_signal=data['influencer'],
         noise_filtered_pct=data['noise_pct'],
         duplicate_removed_pct=data['dup_pct'],
+        velocity=data['velocity'],
     )
 
 @router.get('/history', response_model=HistoryResponse)
@@ -172,3 +221,28 @@ async def get_history(coin: str = Query(...)):
     coin = validate_coin(coin)
     history = store.get_history(coin, limit=100)
     return HistoryResponse(coin=coin, history=history)
+
+@router.get('/watchlist')
+async def get_watchlist():
+    return {"watchlist": store.get_watchlist()}
+
+@router.post('/watchlist/{coin}')
+async def add_watchlist(coin: str):
+    coin = validate_coin(coin)
+    store.add_to_watchlist(coin)
+    return {"status": "success", "coin": coin}
+
+@router.delete('/watchlist/{coin}')
+async def remove_watchlist(coin: str):
+    coin = validate_coin(coin)
+    store.remove_from_watchlist(coin)
+    return {"status": "success", "coin": coin}
+
+@router.websocket('/ws/feed')
+async def websocket_feed(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

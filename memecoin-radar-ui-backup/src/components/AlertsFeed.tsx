@@ -1,53 +1,42 @@
 import React from 'react';
-import { TrendResponse } from '../types';
 
-export const AlertsFeed: React.FC<{ trend: TrendResponse }> = ({ trend }) => {
-  const alerts = trend.alerts.slice(0, 5);
-
-  const getIcon = (type: string) => {
-    switch(type) {
-      case 'MENTION_SPIKE': return '🔥';
-      case 'WHALE_SPIKE': return '🐋';
-      case 'SENTIMENT_FLIP': return '📉';
-      case 'VOLUME_SPIKE': return '📊';
-      default: return '⚠️';
-    }
-  };
-
-  const getColor = (sev: string) => {
-    if (sev === 'HIGH') return '#ff3333';
-    if (sev === 'MEDIUM') return '#ffd700';
-    return '#64748b';
-  };
-
-  const getRelativeTime = (ts: string) => {
-    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-    return diff <= 0 ? 'Just now' : `${diff} mins ago`;
-  };
-
+export const AlertsFeed = ({ alerts }: any) => {
   return (
-    <div style={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: '12px', padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <h2 style={{ fontSize: '16px', color: '#e2e8f0', marginBottom: '16px', fontWeight: 'bold' }}>LATEST SIGNALS</h2>
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
-        {alerts.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: '14px', marginTop: 'auto', marginBottom: 'auto', textAlign: 'center' }}>No signals detected in this window</div>
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col shadow-lg overflow-hidden relative">
+      <div className="flex justify-between items-center mb-4 shrink-0">
+        <h3 className="text-slate-200 text-sm font-bold uppercase tracking-widest">Latest Signals</h3>
+        <div className="flex gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span></div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-700">
+        {!alerts || alerts.length === 0 ? (
+          <div className="text-slate-500 text-sm italic text-center py-4">No recent signals. 100% organic behavior.</div>
         ) : (
-          alerts.map((a, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingBottom: '12px', borderBottom: i === alerts.length - 1 ? 'none' : '1px solid #1e2d4a' }}>
-              <span style={{ fontSize: '20px' }}>{getIcon(a.alert_type)}</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                <span style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.4' }}>
-                  {a.message.length > 40 ? a.message.substring(0, 40) + '...' : a.message}
-                </span>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#64748b', fontSize: '12px' }}>{getRelativeTime(a.timestamp)}</span>
-                  <span style={{ color: getColor(a.severity), fontSize: '10px', fontWeight: 'bold', border: `1px solid ${getColor(a.severity)}`, padding: '2px 6px', borderRadius: '4px' }}>
-                    {a.severity}
+          alerts.map((alert: any, idx: number) => {
+            const isWhale = alert.alert_type === 'WHALE_SPIKE';
+            const isMention = alert.alert_type === 'MENTION_SPIKE';
+            
+            const isNewest = idx === 0;
+            
+            return (
+              <div 
+                key={idx + alert.timestamp} 
+                className={`bg-[#1a233a] border border-slate-700/50 p-3 rounded-lg flex items-center justify-between group hover:border-slate-500 transition-all ${isNewest ? 'animate-[bounce_0.5s_ease-out]' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{isWhale ? '🐋' : isMention ? '🔥' : '📉'}</span>
+                  <span className={`text-sm font-medium ${isWhale ? 'text-blue-400' : isMention ? 'text-amber-400' : 'text-rose-400'}`}>
+                    {alert.message}
                   </span>
                 </div>
+                {alert.timestamp && (
+                  <span className="text-xs text-slate-500 font-mono">
+                    {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

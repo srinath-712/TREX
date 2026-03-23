@@ -68,7 +68,7 @@ def _fetch_from_reddit(coin: str) -> List[dict]:
         reddit = praw.Reddit(
             client_id=client_id,
             client_secret=client_secret,
-            user_agent='MemeRadar/1.0'
+            user_agent='TREX/1.0'
         )
         subreddits = ['CryptoMoonShots', 'SatoshiStreetBets', 'dogecoin', 'shitcoinmoonshots']
         
