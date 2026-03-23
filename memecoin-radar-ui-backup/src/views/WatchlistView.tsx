@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Eye } from 'lucide-react';
 
 export const WatchlistView = () => {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [newCoin, setNewCoin] = useState('');
   const [coinData, setCoinData] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const fetchWatchlist = async () => {
     try {
@@ -38,8 +40,24 @@ export const WatchlistView = () => {
     e.preventDefault();
     if (!newCoin.trim()) return;
     setLoading(true);
-    await axios.post(`/api/watchlist/${newCoin.trim().toUpperCase()}`);
-    setNewCoin('');
+    setErrorMsg('');
+    try {
+        await axios.post(`/api/watchlist/${newCoin.trim().toUpperCase()}`);
+        setNewCoin('');
+        fetchWatchlist();
+    } catch (error: any) {
+        setLoading(false);
+        if (error.response && error.response.data && error.response.data.detail) {
+            setErrorMsg(error.response.data.detail);
+        } else {
+            setErrorMsg("Failed to add coin");
+        }
+    }
+  };
+
+  const handleClearAll = async () => {
+    setLoading(true);
+    await axios.delete('/api/watchlist');
     fetchWatchlist();
   };
 
@@ -53,28 +71,42 @@ export const WatchlistView = () => {
     <div className="flex flex-col h-full gap-6 max-w-6xl mx-auto w-full">
       <div className="flex justify-between items-end border-b border-slate-800 pb-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-widest uppercase">Personal Watchlist</h2>
+          <h2 className="text-2xl font-bold text-white tracking-widest uppercase flex items-center gap-4">
+             Personal Watchlist
+             {watchlist.length > 0 && (
+                <button onClick={handleClearAll} className="text-xs text-rose-400 border border-rose-500/30 bg-rose-500/10 px-3 py-1 rounded hover:bg-rose-500/20 transition-colors uppercase tracking-wide">
+                   Clear All
+                </button>
+             )}
+          </h2>
           <p className="text-slate-400 mt-1">Track high-priority assets persistently (Backed by TREX Core).</p>
         </div>
-        <form onSubmit={handleAdd} className="flex gap-2">
-          <input 
-            type="text" 
-            value={newCoin}
-            onChange={(e) => setNewCoin(e.target.value)}
-            placeholder="Add Coin Ticker" 
-            className="px-4 py-2 bg-[#131B2F] border border-[#2a3754] rounded-lg focus:outline-none focus:border-emerald-500 min-w-48 text-white uppercase"
-          />
-          <button type="submit" className="px-6 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded-lg hover:bg-emerald-500/30 transition-colors font-bold">
-            Add
-          </button>
-        </form>
+        <div className="flex flex-col items-end gap-1 relative">
+            <form onSubmit={handleAdd} className="flex gap-2">
+              <input 
+                type="text" 
+                value={newCoin}
+                onChange={(e) => setNewCoin(e.target.value)}
+                placeholder="Add Coin Ticker" 
+                className={`px-4 py-2 bg-[#131B2F] border ${errorMsg ? 'border-rose-500/50' : 'border-[#2a3754]'} rounded-lg focus:outline-none focus:border-emerald-500 min-w-48 text-white uppercase`}
+              />
+              <button type="submit" className="px-6 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded-lg hover:bg-emerald-500/30 transition-colors font-bold">
+                Add
+              </button>
+            </form>
+            {errorMsg && (
+              <div className="absolute top-full mt-1 right-0 text-rose-400 text-xs bg-[#131B2F] border border-rose-500/20 px-3 py-1.5 rounded-md shadow-lg whitespace-nowrap z-50">
+                 {errorMsg}
+              </div>
+            )}
+        </div>
       </div>
 
       {loading ? (
         <div className="flex-1 flex justify-center items-center"><div className="w-8 h-8 rounded-full border-2 border-slate-600 border-t-emerald-500 animate-spin"></div></div>
       ) : watchlist.length === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center text-slate-500 border border-dashed border-slate-800 rounded-2xl h-64">
-           <span className="text-4xl mb-4">⭐</span>
+           <Eye size={48} className="text-slate-700 mb-4" />
            <p>Your watchlist is empty.</p>
            <p className="text-xs mt-2">Add a coin ticker above to pin it to your dashboard.</p>
         </div>
@@ -82,19 +114,21 @@ export const WatchlistView = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {watchlist.map(coin => (
             <div key={coin} className="bg-[#131B2F] border border-[#2a3754] rounded-xl p-5 flex flex-col shadow-lg relative group">
-              <button onClick={() => handleRemove(coin)} className="absolute top-4 right-4 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                 ✕ Remove
-              </button>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 relative">
                 <h3 className="text-2xl font-bold font-mono text-white flex items-center gap-2">
                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs border border-slate-600">{coin[0]}</div>
                    {coin}
                 </h3>
                 {coinData[coin] && (
-                   <div className="px-3 py-1 rounded bg-[#1a233a] border border-slate-700 text-sm font-mono">
-                     Score: <span className="text-emerald-400 font-bold">{Math.round(coinData[coin].final_score * 100)}</span>
+                   <div className="absolute left-1/2 -translate-x-1/2">
+                     <div className="px-3 py-1 rounded bg-[#1a233a] border border-slate-700 text-sm font-mono whitespace-nowrap">
+                       Score: <span className="text-emerald-400 font-bold">{Math.round(coinData[coin].final_score * 100)}</span>
+                     </div>
                    </div>
                 )}
+                <button onClick={() => handleRemove(coin)} className="text-slate-400 hover:text-rose-400 transition-opacity duration-300 text-sm font-medium z-10 bg-slate-800/50 px-2 py-1 rounded border border-slate-700 opacity-0 group-hover:opacity-100">
+                   ✕ Remove
+                </button>
               </div>
               
               {coinData[coin] ? (

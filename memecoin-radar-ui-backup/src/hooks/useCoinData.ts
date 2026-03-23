@@ -33,6 +33,19 @@ export function useCoinData(coin: string) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Periodic Refresh for Trending Coins list (Dropdown sync)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const c = await fetchCoins(); 
+        setCoins(c);
+      } catch (e) {
+        console.error("Failed to poll trending coins", e);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // WebSocket Live Feed System
   useEffect(() => {
     let ws: WebSocket;

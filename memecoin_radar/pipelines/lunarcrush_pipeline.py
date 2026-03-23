@@ -110,3 +110,24 @@ async def fetch_lunarcrush_data(coin: str) -> dict:
     except Exception as e:
         print(f"[ERROR] LunarCrush Pipeline: {e}")
         return _fallback_data()
+
+async def fetch_top_trending_coins() -> list:
+    """
+    Fetches the top 4 trending meme coins from LunarCrush.
+    """
+    if not LUNARCRUSH_API_KEY:
+        # Fallback to a rotation of popular memes if no API key
+        return ["DOGE", "SHIB", "PEPE", "WIF"]
+
+    headers = {"Authorization": f"Bearer {LUNARCRUSH_API_KEY}"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Fetching top 4 coins by social_score (trending)
+            response = await client.get("https://lunarcrush.com/api4/public/coins/list/v1?limit=4&sort=social_score", headers=headers)
+            if response.status_code == 200:
+                data = response.json().get("data", [])
+                return [coin.get("symbol", "").upper() for coin in data if coin.get("symbol")]
+    except Exception as e:
+        print(f"[ERROR] fetch_top_trending_coins: {e}")
+    
+    return ["DOGE", "SHIB", "PEPE", "WIF"] # Final fallback

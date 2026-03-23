@@ -165,13 +165,16 @@ async def _run_pipeline(coin: str) -> dict:
 
 @router.get('/coins', response_model=CoinsListResponse)
 async def get_coins():
-    tracked = store.get_tracked_coins()
+    trending = store.get_trending_coins()
+    watchlist = store.get_watchlist()
+    tracked = list(set(trending + watchlist))
+
     if not tracked:
         return CoinsListResponse(coins=[], total=0,
                                  window_minutes=WINDOW_MINUTES)
 
     results = []
-    for coin in tracked[:TOP_N_COINS]:
+    for coin in tracked:
         try:
             data = await _run_pipeline(coin)
             results.append(CoinSummary(
@@ -226,9 +229,26 @@ async def get_history(coin: str = Query(...)):
 async def get_watchlist():
     return {"watchlist": store.get_watchlist()}
 
+@router.get('/trending')
+async def get_trending():
+    return {"trending": store.get_trending_coins()}
+
+VALID_MEME_COINS = {
+    "DOGE", "SHIB", "PEPE", "BONK", "FLOKI", "WIF", "TRUMP", "PENGU", 
+    "SPX", "FARTCOIN", "POPCAT", "PNUT", "AI16Z", "MOG", "BOME", "BRETT", 
+    "TURBO", "TOSHI", "COQ", "WEN", "SAMO", "KISHU", "AKITA", "HOGE", 
+    "PIT", "CATE", "MONA", "ELON", "BABYDOGE", "LEASH", "SHINJA", "TSUKA", 
+    "KUMA", "RYOSHI", "SNEK", "GIGA", "NPC", "CAT", "TCAT", "CHILL", 
+    "MOON", "PIPPIN", "MEME", "WOJAK", "PEPE2", "AIDOGE", "APU", "BASED", 
+    "BITCOIN", "EDOGE", "MINIDOGE", "DOBO", "CHEEMS", "FLOKI2", "BONK2", 
+    "PEPECOIN", "SHIBP", "KANG"
+}
+
 @router.post('/watchlist/{coin}')
 async def add_watchlist(coin: str):
     coin = validate_coin(coin)
+    if coin not in VALID_MEME_COINS:
+        raise HTTPException(status_code=400, detail=f"There is no meme coin like {coin} exist.")
     store.add_to_watchlist(coin)
     return {"status": "success", "coin": coin}
 
@@ -237,6 +257,11 @@ async def remove_watchlist(coin: str):
     coin = validate_coin(coin)
     store.remove_from_watchlist(coin)
     return {"status": "success", "coin": coin}
+
+@router.delete('/watchlist')
+async def clear_watchlist():
+    store.clear_watchlist()
+    return {"status": "success"}
 
 @router.websocket('/ws/feed')
 async def websocket_feed(websocket: WebSocket):

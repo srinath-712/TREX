@@ -9,8 +9,10 @@ import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { InsightSummary } from '../components/InsightSummary';
 import { AlertsFeed } from '../components/AlertsFeed';
 import { RecentPosts } from '../components/RecentPosts';
+import { AdvancedRealTimeChart } from "react-ts-tradingview-widgets";
 
 export const DashboardView = () => {
+  const [activeTab, setActiveTab] = useState<'TREND' | 'CANDLE'>('TREND');
   const [selectedCoin, setSelectedCoin] = useState('PEPE');
   const { trend, history, coins, loading, error, refresh, wsStatus } = useCoinData(selectedCoin);
 
@@ -38,7 +40,23 @@ export const DashboardView = () => {
         )}
       </div>
 
-      {/* Main Dashboard Grid */}
+      {/* Tab Navigation */}
+      <div className="flex gap-6 border-b border-slate-800 px-2 shrink-0">
+        <button 
+          onClick={() => setActiveTab('TREND')} 
+          className={`pb-3 border-b-2 text-sm font-semibold transition-colors ${activeTab === 'TREND' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+        >
+          TREND ANALYSIS
+        </button>
+        <button 
+          onClick={() => setActiveTab('CANDLE')} 
+          className={`pb-3 border-b-2 text-sm font-semibold transition-colors ${activeTab === 'CANDLE' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+        >
+          CANDLE CHART
+        </button>
+      </div>
+
+      {/* Main Dashboard Area */}
       {loading && !trend ? (
         <div className="flex-1 flex justify-center items-center">
             <div className="w-8 h-8 rounded-full border-2 border-slate-600 border-t-emerald-500 animate-spin"></div>
@@ -48,7 +66,11 @@ export const DashboardView = () => {
            <div>{error}</div>
            <button onClick={refresh} className="px-4 py-2 bg-slate-800 text-white rounded">Retry</button>
         </div>
-      ) : trend ? (
+      ) : !trend ? null : activeTab === 'CANDLE' ? (
+        <div className="flex-1 w-full min-h-[600px] bg-[#111827] rounded-xl overflow-hidden border border-slate-800">
+           <AdvancedRealTimeChart theme="dark" symbol={`${selectedCoin}USDT`} autosize />
+        </div>
+      ) : (
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 min-h-0 pb-2">
           {/* Left Column */}
           <div className="col-span-12 xl:col-span-8 flex flex-col gap-4 min-h-0">
@@ -79,7 +101,7 @@ export const DashboardView = () => {
              </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

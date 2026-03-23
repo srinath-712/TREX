@@ -13,6 +13,13 @@ class TimeWindowStore:
         self._history_store: Dict[str, List[HistoryEntry]] = defaultdict(list)
         self._watchlist: set = set()
         self._last_known_phase: Dict[str, str] = {}
+        self._trending_coins: List[str] = ['DOGE', 'SHIB', 'PEPE', 'FLOKI']
+
+    def set_trending_coins(self, coins: List[str]) -> None:
+        self._trending_coins = [c.upper() for c in coins[:4]]
+
+    def get_trending_coins(self) -> List[str]:
+        return self._trending_coins
 
     def check_and_update_phase(self, coin: str, new_phase: str):
         old_phase = self._last_known_phase.get(coin)
@@ -27,6 +34,9 @@ class TimeWindowStore:
 
     def remove_from_watchlist(self, coin: str) -> None:
         self._watchlist.discard(coin.upper())
+
+    def clear_watchlist(self) -> None:
+        self._watchlist.clear()
 
     def get_watchlist(self) -> List[str]:
         return list(self._watchlist)

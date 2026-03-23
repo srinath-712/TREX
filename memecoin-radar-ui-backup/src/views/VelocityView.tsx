@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Gauge } from 'lucide-react';
 
 export const VelocityView = () => {
   const [coins, setCoins] = useState<any[]>([]);
@@ -9,7 +10,6 @@ export const VelocityView = () => {
     const fetchVelocity = async () => {
       try {
         const { data } = await axios.get('/api/coins');
-        // Sort explicitly by trajectory logic
         const sorted = (data.coins || []).sort((a: any, b: any) => (b.velocity || 0) - (a.velocity || 0));
         setCoins(sorted);
       } catch (e) {
@@ -23,14 +23,48 @@ export const VelocityView = () => {
 
   return (
     <div className="flex flex-col h-full gap-6 w-full max-w-6xl mx-auto">
-      <div className="border-b border-slate-800 pb-4">
-        <h2 className="text-2xl font-bold text-white tracking-widest uppercase flex items-center gap-3">
-          <span className="p-2 bg-rose-500/20 text-rose-500 rounded-lg">🚀</span> Score Velocity Indicator
-        </h2>
-        <p className="text-slate-400 mt-2 max-w-3xl leading-relaxed">
-          Velocity measures the rate of change per time-window: <code className="text-emerald-400 bg-emerald-400/10 px-1 rounded">(score_now - score_3_windows_ago) / 3</code>.
-          This turns a static score into a predictive trajectory layout. Coins in EARLY_HYPE with strong velocity (↑↑) represent the highest priority alerts.
-        </p>
+      <div className="border-b border-slate-800 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-[#e2e8f0] tracking-widest uppercase flex items-center gap-3">
+              <Gauge className="text-emerald-500 w-6 h-6" /> CORE VELOCITY MATRIX
+            </h2>
+            <p className="text-slate-500 mt-1 font-medium tracking-wide text-xs">Technical Momentum & Trend Acceleration Analysis</p>
+          </div>
+          <div className="hidden md:flex flex-col items-end">
+             <span className="text-[10px] text-slate-500 uppercase tracking-widest">Update Frequency</span>
+             <span className="text-xs font-mono text-emerald-400 font-bold">1-Minute Refresh Cycle</span>
+          </div>
+        </div>
+
+        {/* Indicator Glossary / Hints */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
+           <div className="bg-[#131B2F] border border-[#2a3754] p-3 rounded-xl">
+              <div className="text-emerald-400 font-black text-xl mb-1">↑↑</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Supermassive</div>
+              <div className="text-[9px] text-slate-400 leading-tight mt-1">Extreme acceleration. Usually precedes massive breakout.</div>
+           </div>
+           <div className="bg-[#131B2F] border border-[#2a3754] p-3 rounded-xl">
+              <div className="text-emerald-500 font-black text-xl mb-1">↑</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Steady Ascent</div>
+              <div className="text-[9px] text-slate-400 leading-tight mt-1">Healthy organic growth in mentions & score.</div>
+           </div>
+           <div className="bg-[#131B2F] border border-[#2a3754] p-3 rounded-xl">
+              <div className="text-slate-500 font-black text-xl mb-1">→</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Base Consolidation</div>
+              <div className="text-[9px] text-slate-400 leading-tight mt-1">Neutral momentum. Typical during accumulation phases.</div>
+           </div>
+           <div className="bg-[#131B2F] border border-[#2a3754] p-3 rounded-xl">
+              <div className="text-rose-400 font-black text-xl mb-1">↓</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Correction</div>
+              <div className="text-[9px] text-slate-400 leading-tight mt-1">Minor pull-back in social dominance or pricing.</div>
+           </div>
+           <div className="bg-[#131B2F] border border-[#2a3754] p-3 rounded-xl">
+              <div className="text-rose-600 font-black text-xl mb-1">↓↓</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Freefall</div>
+              <div className="text-[9px] text-slate-400 leading-tight mt-1">Severe exhaustion. Indicates a possible trend reversal.</div>
+           </div>
+        </div>
       </div>
 
       <div className="flex-1">

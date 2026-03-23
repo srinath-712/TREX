@@ -14,32 +14,55 @@ from memecoin_radar.api.routes import _run_pipeline
 from memecoin_radar.api.ws_manager import manager
 import asyncio
 
+from memecoin_radar.pipelines.lunarcrush_pipeline import fetch_top_trending_coins
+
 async def background_pipeline():
     while True:
         if manager.active_connections:
-            tracked = store.get_tracked_coins()
-            for coin in tracked[:5]:
+            # Only run pipeline for currently trending coins + watchlist
+            trending = store.get_trending_coins()
+            watchlist = store.get_watchlist()
+            active_set = list(set(trending + watchlist))
+            
+            for coin in active_set:
                 try:
                     await _run_pipeline(coin)
                 except Exception:
                     pass
         await asyncio.sleep(4)
 
+async def rotation_task():
+    """Refreshes the top-4 trending coins from LunarCrush every 1 minute."""
+    while True:
+        try:
+            trending = await fetch_top_trending_coins()
+            store.set_trending_coins(trending)
+            print(f"[ROTATION] Updated trending coins: {trending}")
+        except Exception as e:
+            print(f"[ERROR] Rotation task failed: {e}")
+        await asyncio.sleep(60)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Seed with some initial coins for the /coins endpoint to work
-    for coin in ['PEPE', 'DOGE', 'SHIB', 'FLOKI', 'BONK']:
+    # Initial trending load
+    initial_trending = await fetch_top_trending_coins()
+    store.set_trending_coins(initial_trending)
+
+    # Seed initial posts for trending coins
+    for coin in initial_trending:
         store.add_posts(coin, [CleanPost(
-            text="Initial seed post",
+            text=f"Initial seed post for {coin}",
             timestamp=datetime.now(timezone.utc),
             likes=10, comments=2, reposts=5,
             source='twitter', post_id=f"seed_{coin}",
             compound_score=0.5
         )])
         
-    task = asyncio.create_task(background_pipeline())
+    p_task = asyncio.create_task(background_pipeline())
+    r_task = asyncio.create_task(rotation_task())
     yield
-    task.cancel()
+    p_task.cancel()
+    r_task.cancel()
 
 app = FastAPI(
     title='TREX API',
