@@ -48,8 +48,9 @@ async def lifespan(app: FastAPI):
     initial_trending = await fetch_top_trending_coins()
     store.set_trending_coins(initial_trending)
 
-    # Seed initial posts for trending coins
+    # Seed initial history and posts for trending coins
     for coin in initial_trending:
+        store.seed_history(coin)
         store.add_posts(coin, [CleanPost(
             text=f"Initial seed post for {coin}",
             timestamp=datetime.now(timezone.utc),

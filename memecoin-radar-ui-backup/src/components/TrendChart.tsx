@@ -1,45 +1,112 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 
 export const TrendChart = ({ history }: any) => {
-  if (!history || history.length === 0) return (
-    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col justify-center items-center text-slate-500 shadow-lg">
-      <div className="animate-pulse flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-600"></div>Gathering Signal...</div>
+  const [activeTimeframe, setActiveTimeframe] = useState<'15M' | '30M'>('30M');
+
+  const filteredHistory = useMemo(() => {
+    if (!history || history.length === 0) return [];
+    
+    const now = new Date().getTime();
+    const limitMs = activeTimeframe === '15M' ? 15 * 60 * 1000 : 30 * 60 * 1000;
+    const startTimeBoundary = now - limitMs;
+
+    const filtered = history.filter((entry: any) => {
+      const entryTime = new Date(entry.timestamp).getTime();
+      return entryTime >= startTimeBoundary;
+    });
+
+    return filtered.length > 0 ? filtered : [history[history.length - 1]];
+  }, [history, activeTimeframe]);
+
+  if (!filteredHistory || filteredHistory.length === 0) return (
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col justify-center items-center text-slate-500 shadow-lg font-mono uppercase tracking-widest text-xs">
+      <div className="animate-pulse flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+        Syncing Neural Feed...
+      </div>
     </div>
   );
 
-  const scores = history.map((entry: any) => entry.final_score);
-  const min = Math.max(0, Math.min(...scores) - 0.2); // Add padding
-  const max = Math.min(1, Math.max(...scores) + 0.2);
-  const range = max - min || 1;
+  const scores = filteredHistory.map((entry: any) => entry.mentions || entry.final_score || 0);
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const range = (maxScore - minScore) || 1;
+  const padding = range * 0.15;
+  const min = Math.max(0, minScore - padding);
+  const max = maxScore + padding;
+  const currentRange = max - min;
 
-  const points = history.map((entry: any, i: number) => {
-    const x = history.length > 1 ? (i / (history.length - 1)) * 100 : 50;
-    const y = 100 - (((entry?.final_score || 0) - min) / range) * 100;
+  const points = filteredHistory.map((entry: any, i: number) => {
+    // STRETCH: Use index based X to fill the container regardless of density
+    const x = filteredHistory.length > 1 ? (i / (filteredHistory.length - 1)) * 100 : 50;
+    const val = entry.mentions || entry.final_score || 0;
+    const y = 100 - ((val - min) / currentRange) * 100;
     return { x, y, isAlert: entry?.alerts && entry?.alerts.length > 0 };
   });
 
-  const pathD = `M 0,${points[0] ? points[0].y : 50} L ${points.map((p: any) => `${p.x},${p.y}`).join(' L ')}`;
-  const areaD = `${pathD} L 100,100 L 0,100 Z`;
+  const pathD = points.length > 0 
+    ? `M ${points[0].x},${points[0].y} L ${points.map((p: any) => `${p.x},${p.y}`).join(' L ')}`
+    : '';
+  const areaD = points.length > 0 
+    ? `${pathD} L ${points[points.length-1].x},100 L ${points[0].x},100 Z`
+    : '';
+
+  const generateLabels = () => {
+    if (filteredHistory.length < 2) return [<span key="live" className="text-emerald-400 font-bold">LIVE-FEED</span>];
+    const labels = [];
+    const count = 4;
+    for (let i = 0; i <= count; i++) {
+        const entry = filteredHistory[Math.floor((filteredHistory.length - 1) * (i / count))];
+        const time = new Date(entry.timestamp);
+        const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        labels.push(
+            <span key={i} className={i === count ? "text-emerald-400 font-bold" : ""}>
+                {i === count ? "LIVE" : timeString}
+            </span>
+        );
+    }
+    return labels;
+  };
 
   return (
-    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col shadow-lg overflow-hidden relative">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4 shrink-0">
-        <h3 className="text-slate-200 text-sm font-bold uppercase tracking-widest">Trend Overview</h3>
-        <div className="h-4 w-[1px] bg-slate-600"></div>
-        <span className="text-xs text-slate-400">Last 24 Hours</span>
+    <div className="rounded-xl border border-[#2a3754] bg-[#131B2F] p-4 h-full flex flex-col shadow-lg overflow-hidden relative group">
+      {/* Header with Axis Titles */}
+      <div className="flex items-center justify-between mb-4 shrink-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <h3 className="text-slate-200 text-xs font-black uppercase tracking-[0.2em] whitespace-nowrap">Trend Evolution</h3>
+            <span className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest mt-0.5">Y-Axis: Mentions / X-Axis: Time</span>
+          </div>
+        </div>
+        
+        <div className="flex gap-1 bg-[#0c1220] p-1 rounded-lg border border-slate-800/50">
+           {(['15M', '30M'] as const).map(tf => (
+               <button 
+                 key={tf} 
+                 onClick={() => setActiveTimeframe(tf)}
+                 className={`text-[9px] font-black px-2.5 py-1 rounded-md transition-all uppercase tracking-tighter ${activeTimeframe === tf ? 'bg-emerald-500 text-[#0c1220] shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
+               >
+                 {tf}
+               </button>
+           ))}
+        </div>
       </div>
 
-      {/* Embedded Chart */}
-      <div className="flex-1 relative w-full h-full min-h-0">
-        <svg viewBox="-2 -5 104 110" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+      {/* Main Chart Area */}
+      <div className="flex-1 w-full relative mt-2 pt-2">
+        {/* Internal Y Axis Label */}
+        <div className="absolute left-[-20px] top-1/2 -rotate-90 -translate-y-1/2 text-[8px] font-bold text-slate-600 tracking-[0.3em] pointer-events-none uppercase">Mentions</div>
+        {/* Internal X Axis Label */}
+        <div className="absolute bottom-[-15px] right-2 text-[8px] font-bold text-slate-600 tracking-[0.3em] pointer-events-none uppercase">Time Sequence</div>
+
+        <svg viewBox="-2 -5 104 110" preserveAspectRatio="none" className="w-full h-[85%] overflow-visible absolute inset-0">
           <defs>
             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(16, 185, 129, 0.2)" />
+              <stop offset="0%" stopColor="rgba(16, 185, 129, 0.25)" />
               <stop offset="100%" stopColor="rgba(16, 185, 129, 0.0)" />
             </linearGradient>
             <filter id="glowChart" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feGaussianBlur stdDeviation="1.2" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -47,29 +114,37 @@ export const TrendChart = ({ history }: any) => {
             </filter>
           </defs>
 
-          {/* Grid Lines */}
+          {/* Grid System */}
           {[0, 25, 50, 75, 100].map(y => (
-            <line key={`grid-${y}`} x1="0" y1={y} x2="100" y2={y} stroke="#1e293b" strokeWidth="0.5" />
+            <line key={`grid-${y}`} x1="0" y1={y} x2="100" y2={y} stroke="#1e293b" strokeWidth="0.3" strokeDasharray="2,2" />
           ))}
 
-          {/* Area Fill */}
-          <path d={areaD} fill="url(#chartGradient)" />
+          {filteredHistory.length > 1 && pathD && (
+            <>
+              <path d={areaD} fill="url(#chartGradient)" />
+              <path d={pathD} fill="none" stroke="#10b981" strokeWidth="2.5" vectorEffect="non-scaling-stroke" filter="url(#glowChart)" className="drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+              
+              {/* Data Points */}
+              {points.map((p: any, i: number) => (
+                (i === 0 || i === points.length - 1 || i % Math.max(1, Math.floor(points.length/10)) === 0) && (
+                   <circle key={i} cx={p.x} cy={p.y} r="1.2" fill="#10b981" />
+                )
+              ))}
+            </>
+          )}
 
-          {/* Line Path */}
-          <path d={pathD} fill="none" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" filter="url(#glowChart)" className="drop-shadow-lg" />
-
-          {/* Alert Spikes */}
+          {/* Critical Alerts */}
           {points.filter((p: any) => p.isAlert).map((p: any, i: number) => (
              <g key={i}>
-                <line x1={p.x} y1="100" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="1,1" />
-                <circle cx={p.x} cy={p.y} r="2.5" fill="#f8fafc" filter="url(#glowChart)" />
+                <line x1={p.x} y1="100" x2={p.x} y2={p.y} stroke="#f8fafc" strokeWidth="0.5" strokeDasharray="1,1" opacity="0.3" />
+                <circle cx={p.x} cy={p.y} r="3" fill="#f8fafc" filter="url(#glowChart)" />
              </g>
           ))}
         </svg>
 
-        {/* Mock X-Axis Labels */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-slate-500 px-1 transform translate-y-4">
-          <span>10:00</span><span>15:00</span><span>23:00</span><span>8:00</span><span>11:00</span><span>12:00</span><span className="text-emerald-400 font-bold">LIVE</span>
+        {/* X-Axis Timeline */}
+        <div className="absolute bottom-[5%] left-0 right-0 flex justify-between text-[8px] text-slate-500 px-1 py-1.5 border-t border-slate-800/50 bg-[#0c1220]/40 font-mono">
+          {generateLabels()}
         </div>
       </div>
     </div>

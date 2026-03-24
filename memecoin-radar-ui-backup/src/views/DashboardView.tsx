@@ -14,12 +14,12 @@ import { AdvancedRealTimeChart } from "react-ts-tradingview-widgets";
 export const DashboardView = () => {
   const [activeTab, setActiveTab] = useState<'TREND' | 'CANDLE'>('TREND');
   const [selectedCoin, setSelectedCoin] = useState('PEPE');
-  const { trend, history, coins, loading, error, refresh, wsStatus } = useCoinData(selectedCoin);
+  const { trend, history, coins, loading, error, refresh, wsStatus, rotationTimer } = useCoinData(selectedCoin);
 
   return (
     <div className="h-full w-full flex flex-col gap-4 font-sans text-sm">
       {/* Top Header */}
-      <Header alerts={trend?.alerts} wsStatus={wsStatus} />
+      <Header alerts={trend?.alerts} wsStatus={wsStatus} rotationTimer={rotationTimer} />
 
       {/* Search & Top Scores */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between shrink-0 bg-[#0f1629]/50 p-2 rounded-xl border border-slate-800/50">

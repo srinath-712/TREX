@@ -21,6 +21,7 @@ from memecoin_radar.engine.classification import classify_hype_cycle
 from memecoin_radar.engine.confidence import compute_confidence
 from memecoin_radar.engine.alerts import detect_alerts
 from memecoin_radar.engine.influencer import detect_influencer_signal
+from memecoin_radar.engine.gemini_analyzer import analyze_coin_with_gemini
 from memecoin_radar.detection.coin_detector import extract_coins_from_posts, get_top_coins
 from memecoin_radar.storage.time_window_store import store
 
@@ -94,13 +95,34 @@ async def _run_pipeline(coin: str) -> dict:
     noise_pct = 0.0
     dup_pct   = 0.0
 
-    # 12. Calculate velocity
+    # 11.5 Gemini AI Insights
+    gemini_analysis = await analyze_coin_with_gemini(
+        coin, 
+        soc_features.model_dump() if hasattr(soc_features, 'model_dump') else soc_features.dict(), 
+        onchain_raw, 
+        hype.phase, 
+        final.score
+    )
+
+    # 12. Calculate 30-Min velocity based on in-memory history
     history = store.get_history(coin)
     velocity = 0.0
-    if len(history) >= 4:
-        velocity = (final.score - history[-4].final_score) / 3
-    elif len(history) > 0:
-        velocity = (final.score - history[0].final_score) / len(history)
+    now = datetime.now(timezone.utc)
+    
+    target_entry = None
+    for entry in reversed(history):
+        if (now - entry.timestamp).total_seconds() <= 1800: # 30 mins = 1800s
+            target_entry = entry
+        else:
+            break
+            
+    if not target_entry and history:
+        target_entry = history[0]
+
+    if target_entry and len(history) > 1:
+        time_diff_mins = max(1.0, (now - target_entry.timestamp).total_seconds() / 60.0)
+        velocity = (final.score - target_entry.final_score) * (30.0 / time_diff_mins)
+        velocity = max(-1.0, min(1.0, velocity))
 
     # 13. Broadcast WebSocket updates
     await manager.broadcast({
@@ -111,7 +133,8 @@ async def _run_pipeline(coin: str) -> dict:
             'social_score': final.social_score,
             'onchain_score': final.onchain_score,
             'hype_phase': hype.phase,
-            'confidence': confidence.level
+            'confidence': confidence.level,
+            'gemini_analysis': gemini_analysis
         },
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
@@ -271,3 +294,14 @@ async def websocket_feed(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+from pydantic import BaseModel
+class ChatQuery(BaseModel):
+    query: str
+    active_coin: str = None
+
+@router.post('/chat')
+async def post_chat(query: ChatQuery):
+    from memecoin_radar.engine.gemini_analyzer import chat_with_gemini
+    response = await chat_with_gemini(query.query, query.active_coin)
+    return {"response": response}

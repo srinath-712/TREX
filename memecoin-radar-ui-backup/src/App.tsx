@@ -3,7 +3,8 @@ import { DashboardView } from './views/DashboardView';
 import { WatchlistView } from './views/WatchlistView';
 import { VelocityView } from './views/VelocityView';
 import { HistoricalView } from './views/HistoricalView';
-import { LayoutGrid, Eye, Gauge, ShieldCheck, Settings, HelpCircle, User } from 'lucide-react';
+import { ChatView } from './views/ChatView';
+import { LayoutGrid, Eye, Gauge, ShieldCheck, Settings, HelpCircle, User, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('DASHBOARD');
@@ -42,6 +43,11 @@ export default function App() {
              <ShieldCheck className="w-5 h-5" />
              <span className="font-medium text-sm hidden md:block">Historical Proof</span>
            </button>
+           
+           <button onClick={() => setActiveTab('AI_CHAT')} className={`flex items-center gap-3 px-6 py-3 w-full transition-colors ${activeTab === 'AI_CHAT' ? 'bg-[#1e293b]/70 border-r-[3px] border-[#818cf8] text-indigo-400' : 'text-slate-400 hover:bg-slate-800/40 hover:text-indigo-400 border-r-[3px] border-transparent'}`}>
+             <Sparkles className="w-5 h-5 text-indigo-500" />
+             <span className="font-bold text-sm hidden md:block uppercase tracking-widest text-indigo-400">TREX AI</span>
+           </button>
         </nav>
 
         <div className="mt-auto flex flex-col px-4 pb-6 w-full hidden md:flex">
@@ -78,7 +84,7 @@ export default function App() {
                   <User className="w-4 h-4 text-[#e2e8f0]" />
                </div>
                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-200">Alex River</span>
+                  <span className="text-sm font-semibold text-slate-200">Srinath</span>
                   <span className="text-[10px] text-slate-500">Pro Tier</span>
                </div>
             </div>
@@ -86,11 +92,12 @@ export default function App() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#0c1220] p-3 xl:p-6 overflow-y-auto xl:overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#0c1220] p-3 xl:p-6 overflow-y-auto">
         {activeTab === 'DASHBOARD' && <DashboardView />}
         {activeTab === 'WATCHLIST' && <WatchlistView />}
         {activeTab === 'VELOCITY' && <VelocityView />}
         {activeTab === 'HISTORICAL' && <HistoricalView />}
+        {activeTab === 'AI_CHAT' && <ChatView />}
         {activeTab === 'UPGRADE' && (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-500">
             <div className="text-8xl mb-8 animate-bounce">🦖🎉</div>

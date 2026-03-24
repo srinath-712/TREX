@@ -20,6 +20,8 @@ class CleanPost(BaseModel):
     source: str
     post_id: str
     compound_score: float
+    username: Optional[str] = None
+    user_avatar: Optional[str] = None
 
 class SocialWindow(BaseModel):
     coin: str

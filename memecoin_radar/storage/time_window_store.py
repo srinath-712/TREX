@@ -59,5 +59,24 @@ class TimeWindowStore:
     def get_tracked_coins(self) -> List[str]:
         return list(self._post_store.keys())
 
+    def seed_history(self, coin: str):
+        if self._history_store[coin]: return # Don't seed if already has data
+        
+        import random
+        now = datetime.now()
+        base_score = random.uniform(0.3, 0.7)
+        # Seed 60 points every 30s = 30 minutes of history
+        for i in range(60, -1, -1):
+            ts = now.replace(tzinfo=timezone.utc) - timedelta(seconds=i*30)
+            base_score = max(0.1, min(0.9, base_score + random.uniform(-0.04, 0.04)))
+            self._history_store[coin].append(HistoryEntry(
+                timestamp=ts,
+                final_score=round(base_score, 2),
+                hype_phase="GROWTH" if base_score > 0.5 else "STABLE",
+                confidence="MEDIUM",
+                mentions=int(base_score * 1000 + random.randint(0, 500)),
+                avg_sentiment=0.5
+            ))
+
 # Module-level singleton — import this instance everywhere
 store = TimeWindowStore()

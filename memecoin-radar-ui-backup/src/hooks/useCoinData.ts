@@ -9,6 +9,7 @@ export function useCoinData(coin: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wsStatus, setWsStatus] = useState<string>('Connecting...');
+  const [rotationTimer, setRotationTimer] = useState(0);
 
   // REST fallback for initial load
   const load = useCallback(async () => {
@@ -33,17 +34,19 @@ export function useCoinData(coin: string) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Periodic Refresh for Trending Coins list (Dropdown sync)
+  // Rotation Timer & Data Refresh
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const c = await fetchCoins(); 
-        setCoins(c);
-      } catch (e) {
-        console.error("Failed to poll trending coins", e);
-      }
-    }, 60000);
-    return () => clearInterval(interval);
+    const ticker = setInterval(() => {
+      setRotationTimer(prev => {
+        if (prev >= 59) {
+          // Trigger refresh on overflow
+          fetchCoins().then(c => setCoins(c)).catch(console.error);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+    return () => clearInterval(ticker);
   }, []);
 
   // WebSocket Live Feed System
@@ -55,7 +58,8 @@ export function useCoinData(coin: string) {
     
     const connect = () => {
       if (!isMounted) return;
-      ws = new WebSocket('ws://localhost:5173/api/ws/feed');
+      // Fixed: WebSocket should connect to backend port 8000, not frontend 5173
+      ws = new WebSocket('ws://localhost:8000/api/ws/feed');
       
       ws.onopen = () => {
         if (!isMounted) return;
@@ -81,8 +85,27 @@ export function useCoinData(coin: string) {
                 onchain_score: msg.data.onchain_score,
                 hype_phase: msg.data.hype_phase,
                 confidence: msg.data.confidence,
-                _flash: Date.now() // Used to trigger CSS pulse animations
+                gemini_analysis: msg.data.gemini_analysis,
+                _flash: Date.now()
               } as any;
+            });
+            // Append to history for real-time chart growth
+            setHistory(prev => {
+              if (!prev) return prev;
+              const newPoint = {
+                timestamp: new Date().toISOString(),
+                final_score: msg.data.final_score as number,
+                social_score: (msg.data.social_score || 0) as number,
+                mentions: (msg.data.social_score || 0) as number,
+                onchain_score: (msg.data.onchain_score || 0) as number,
+                hype_phase: (msg.data.hype_phase || 'STABLE') as string,
+                confidence: (msg.data.confidence || 'LOW') as string,
+                avg_sentiment: 0.5
+              } as any;
+              return {
+                ...prev,
+                history: [...prev.history, newPoint].slice(-100)
+              };
             });
           } else if (msg.type === 'new_alert') {
             setTrend(prev => {
@@ -112,13 +135,12 @@ export function useCoinData(coin: string) {
         if (!isMounted) return;
         const seconds = backoff / 1000;
         setWsStatus(`Reconnecting in ${seconds}s`);
-        console.log(`WebSocket disconnected. Reconnecting in ${seconds}s`);
         reconnectTimer = setTimeout(connect, backoff);
-        backoff = Math.min(backoff * 2, 30000); // EXponential backoff up to 30s
+        backoff = Math.min(backoff * 2, 60000); // Increased backoff to 60s to match rotation cycle if needed
       };
       
       ws.onerror = () => {
-        ws.close(); // Force clean close & reconnect trigger
+        ws.close();
       };
     };
     
@@ -128,11 +150,11 @@ export function useCoinData(coin: string) {
       isMounted = false;
       clearTimeout(reconnectTimer);
       if (ws) {
-        ws.onclose = null; // Prevent reconnect loops on unmount
+        ws.onclose = null;
         ws.close();
       }
     };
   }, [coin]);
 
-  return { trend, history, coins, loading, error, refresh: load, wsStatus };
+  return { trend, history, coins, loading, error, refresh: load, wsStatus, rotationTimer };
 }
