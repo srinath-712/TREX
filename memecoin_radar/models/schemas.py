@@ -77,6 +77,10 @@ class Alert(BaseModel):
     message: str
     timestamp: datetime
     severity: Literal['HIGH','MEDIUM','LOW']
+    is_real: Optional[bool] = None
+    reasoning: Optional[str] = None
+    social_multiplier: Optional[float] = None
+    onchain_multiplier: Optional[float] = None
 
 class InfluencerSignal(BaseModel):
     coin: str

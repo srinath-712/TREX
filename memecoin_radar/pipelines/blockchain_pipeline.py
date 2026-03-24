@@ -9,6 +9,17 @@ DEX_ROUTERS = {
     '0xe592427a0aece92de3edee1f18e0157c05861564',  # Uniswap v3
 }
 
+TICKER_ADDRESS_MAP = {
+    'PEPE': '0x6982508145454ce325ddbe47a25d4ec3d2311933',
+    'SHIB': '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce',
+    'FLOKI': '0xcf0c122c6b73ff809c693db761e7baebe62b6a2e',
+    'WOJAK': '0x5026F006B857290ecb5a9efbcbe72113707c7757',
+    'MOG': '0xaaee1a9723a45bd1841ed3ae815598688771bc45',
+    'TURBO': '0xa35923162c49cf95e6bf26623385eb431ad920d3',
+    'APU': '0x59a57330a0d47d9282271657474474661741aa23',
+    'WIF': '0x0000000000000000000000000000000000000000', # SOL-based, ETH placeholder
+}
+
 def _zero_result() -> dict:
     return {
         'curr_whale_count': 0,
@@ -178,8 +189,12 @@ async def _fetch_etherscan(token_address: str) -> dict:
 
 
 async def fetch_onchain_data(token_address: str, coin: str) -> dict:
-    # Fast-fail if not a valid ETH address to avoid 12s timeout spam
+    # Resolve ticker to address if needed
     if not token_address.startswith('0x'):
+        token_address = TICKER_ADDRESS_MAP.get(coin.upper(), token_address)
+
+    # Fast-fail if still not a valid ETH address
+    if not token_address.startswith('0x') or token_address == '0x0000000000000000000000000000000000000000':
         print(f"[WARNING] OnChain: '{token_address}' is not a valid ETH address. Skipping APIs.")
         return _zero_result()
         

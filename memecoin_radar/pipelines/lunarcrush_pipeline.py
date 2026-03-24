@@ -37,6 +37,10 @@ async def fetch_lunarcrush_data(coin: str) -> dict:
             "total_volume": 0
         }
 
+    global LUNARCRUSH_API_KEY
+    if not LUNARCRUSH_API_KEY:
+        LUNARCRUSH_API_KEY = os.getenv("LUNARCRUSH_API_KEY")
+
     if not LUNARCRUSH_API_KEY:
         print(f"[WARNING] LunarCrush: LUNARCRUSH_API_KEY environment variable not set. Falling back to empty data for {coin}.")
         return _fallback_data()
@@ -115,6 +119,10 @@ async def fetch_top_trending_coins() -> list:
     """
     Fetches the top 4 trending meme coins from LunarCrush.
     """
+    global LUNARCRUSH_API_KEY
+    if not LUNARCRUSH_API_KEY:
+        LUNARCRUSH_API_KEY = os.getenv("LUNARCRUSH_API_KEY")
+
     if not LUNARCRUSH_API_KEY:
         # Fallback to a rotation of popular memes if no API key
         return ["DOGE", "SHIB", "PEPE", "WIF"]
